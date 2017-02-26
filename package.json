@@ -4,10 +4,10 @@
   "description": "A discord bot.",
   "main": "wafflebot.js",
   "dependencies": {
-    "assert": "^1.4.1",
     "discord.js": "^11.0.0",
     "moment": "^2.17.1",
     "mongodb": "^2.2.24",
+    "mongoose": "^4.8.5",
     "opusscript": "^0.0.2"
   },
   "devDependencies": {},

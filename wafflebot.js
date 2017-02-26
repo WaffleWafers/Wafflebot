@@ -1,17 +1,21 @@
 var auth = require('./auth.json');
 const Discord = require("discord.js");
 const moment = require('moment');
-const mongo = require('mongodb');
-const assert = require('assert');
+const mongoose = require('mongoose');
 const bot = new Discord.Client();
 
-var MongoClient = mongo.MongoClient;
-var url = 'mongodb://localhost:27017/reminderdb';
+mongoose.Promise = global.Promise;
+mongoose.connect('mongodb://localhost/wafflebot');
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
 
-MongoClient.connect(url, (err, db) =>{
-    assert.equal(null, err);
-
+var reminderSchema = mongoose.Schema({
+    authorId: String,
+    message: String,
+    time: Date
 });
+
+var Reminder = mongoose.model('Reminder', reminderSchema);
 
 const commands = {
     '!help': {
@@ -30,7 +34,7 @@ const commands = {
     },
     '!username': {
         description: `Change name of bot. (2 hour cooldown)`,
-        argDescription: `<*username*>`,
+        argDescription: `<username>`,
         isAdminCommand: true,
         expectedArgs: -1,
         run: function(msg, args) {
@@ -41,7 +45,7 @@ const commands = {
     },
     '!remindme': {
         description: `Sets the bot to message you with a reminder when specified.`,
-        argDescription: `<*time from now*> <*"message"*>`,
+        argDescription: `<time from now> <"message">`,
         isAdminCommand: false,
         expectedArgs: -1,
         run: function(msg, args) {
@@ -50,12 +54,34 @@ const commands = {
             let message = /"(.*)"/.exec(msg.content)[1];
             let reminderTime = new Date(msg.createdAt);
             reminderTime.setTime(reminderTime.getTime() + 60 * 1000);
-            var reminder = {
+            var reminder = new Reminder({
                 authorId: authorId,
                 message: message,
                 time: reminderTime
-            }
-            console.dir(reminder);
+            });
+            reminder.save(function(err, reminder) {
+                if (err) {
+                    msg.channel.sendMessage(`Oops! Something went wrong with saving your reminder on our end.`);
+                    console.log(err);
+                } else {
+                    msg.channel.sendMessage(`Noted!`);
+                }
+            });
+        }
+    },
+    '!clearreminders': {
+        description: `Clears all saved reminders.`,
+        isAdminCommand: true,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            Reminder.remove({}, function(err) {
+                if (err) {
+                    msg.channel.sendMessage(`Oop! Something went wrong with clearing the reminder collection.`);
+                    console.log(err);
+                } else {
+                    console.log('Reminder collection removed');
+                }
+            });
         }
     }
 };
