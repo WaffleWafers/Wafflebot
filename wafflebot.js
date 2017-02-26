@@ -2,6 +2,7 @@ var auth = require('./auth.json');
 const Discord = require("discord.js");
 const moment = require('moment');
 const mongoose = require('mongoose');
+const async = require('async');
 const bot = new Discord.Client();
 
 mongoose.Promise = global.Promise;
@@ -53,7 +54,7 @@ const commands = {
             if (!/"(.*)"/.test(msg.content)) return;
             let message = /"(.*)"/.exec(msg.content)[1];
             let reminderTime = new Date(msg.createdAt);
-            reminderTime.setTime(reminderTime.getTime() + 60 * 1000);
+            reminderTime.setTime(reminderTime.getTime() /*+ 60 * 1000*/);
             var reminder = new Reminder({
                 authorId: authorId,
                 message: message,
@@ -82,6 +83,14 @@ const commands = {
                     console.log('Reminder collection removed');
                 }
             });
+        }
+    },
+    '!sendreminders': {
+        description: `Sends all due reminders.`,
+        isAdminCommand: true,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            sendReminders();
         }
     }
 };
@@ -115,4 +124,35 @@ bot.on("ready", () => {
     console.log(`Ready to serve in ${bot.channels.size} channels on ${bot.guilds.size} servers, for a total of ${bot.users.size} users.`);
 });
 
-bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));;
+bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));
+
+var sendReminders = function() {
+    console.log(`Sending reminders!`);
+    Reminder.find({
+            time: { $lte: Date.now() }
+        },
+        function(err, reminders) {
+            if (err) {
+                console.log(`An error occurred while querying for reminders.`);
+                return;
+            }
+            async.each(reminders, function(reminder) {
+                if (!reminders) return;
+
+                let userId = reminder.authorId;
+                let message = reminder.message;
+                let date = new Date(reminder.time);
+                bot.users.get(userId).sendMessage(``, {embed: {
+                    color: 3447003,
+                    title: 'Reminder!',
+                    description: message,
+                    timestamp: date,
+                }});
+                console.log(`A reminder was sent!`);
+                reminder.remove();
+            });
+        }
+    );
+}
+
+setInterval(sendReminders, 60000);
