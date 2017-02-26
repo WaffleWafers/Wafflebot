@@ -1,30 +1,61 @@
 var auth = require('./auth.json');
-var Discord = require("discord.js");
-var bot = new Discord.Client();
+const Discord = require("discord.js");
+const moment = require('moment');
+const mongo = require('mongodb');
+const assert = require('assert');
+const bot = new Discord.Client();
+
+var MongoClient = mongo.MongoClient;
+var url = 'mongodb://localhost:27017/reminderdb';
+
+MongoClient.connect(url, (err, db) =>{
+    assert.equal(null, err);
+
+});
 
 const commands = {
     '!help': {
         description: `Show list of all commands.`,
         isAdminCommand: false,
         expectedArgs: 0,
-        run: function(channel, args) {
-            channel.sendMessage(`**Command List**`);
-            for (var key in commands) {
+        run: function(msg, args) {
+            let message = `**Command List**\n`;
+            for (let key in commands) {
                 if (!commands.hasOwnProperty(key)) continue;
                 if (commands[key].isAdminCommand) continue;
-                channel.sendMessage(`${key} ${commands[key].expectedArgs > 0 || commands[key].expectedArgs == -1 ? commands[key].argDescription : ''} - *${commands[key].description}*`);
+                message += (`${key} ${commands[key].expectedArgs > 0 || commands[key].expectedArgs == -1 ? commands[key].argDescription : ''} - *${commands[key].description}*\n`);
             }
+            msg.channel.sendMessage(message);
         }
     },
     '!username': {
         description: `Change name of bot. (2 hour cooldown)`,
-        argDescription: '<*username*>',
+        argDescription: `<*username*>`,
         isAdminCommand: true,
         expectedArgs: -1,
-        run: function(channel, args) {
+        run: function(msg, args) {
             if (args.length == 0) return;
             let username = args.join(' ');
             changeUsername(username);
+        }
+    },
+    '!remindme': {
+        description: `Sets the bot to message you with a reminder when specified.`,
+        argDescription: `<*time from now*> <*"message"*>`,
+        isAdminCommand: false,
+        expectedArgs: -1,
+        run: function(msg, args) {
+            let authorId = msg.author.id;
+            if (!/"(.*)"/.test(msg.content)) return;
+            let message = /"(.*)"/.exec(msg.content)[1];
+            let reminderTime = new Date(msg.createdAt);
+            reminderTime.setTime(reminderTime.getTime() + 60 * 1000);
+            var reminder = {
+                authorId: authorId,
+                message: message,
+                time: reminderTime
+            }
+            console.dir(reminder);
         }
     }
 };
@@ -33,13 +64,13 @@ bot.on("message", msg => {
     if (msg.author.bot) return;
 
     let args = msg.content.split(' ');
-    let command = args.splice(0, 1);
+    let command = args.splice(0, 1).toString().toLowerCase();
 
     if (!(command in commands)) return;
     if (commands[command].expectedArgs != args.length && commands[command].expectedArgs != -1) return;
     if (commands[command].isAdminCommand == true && !auth.admins.includes(msg.author.id)) return;
 
-    commands[command].run(msg.channel, args);
+    commands[command].run(msg, args);
 });
 
 function changeUsername(text){
