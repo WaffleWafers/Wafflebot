@@ -45,7 +45,7 @@ const commands = {
         }
     },
     '!remindme': {
-        description: `Sets the bot to message you with a reminder when specified.`,
+        description: `Reminds you with a PM.`,
         argDescription: `<time from now> <"message">`,
         isAdminCommand: false,
         expectedArgs: -1,
@@ -53,8 +53,9 @@ const commands = {
             let authorId = msg.author.id;
             if (!/"(.*)"/.test(msg.content)) return;
             let message = /"(.*)"/.exec(msg.content)[1];
-            let reminderTime = new Date(msg.createdAt);
-            reminderTime.setTime(reminderTime.getTime() /*+ 60 * 1000*/);
+            let time = /!remindme *([^"]*) /.exec(msg.content)[1];
+            let reminderTime = processDate(time);
+            if (reminderTime == null) return;
             var reminder = new Reminder({
                 authorId: authorId,
                 message: message,
@@ -120,12 +121,6 @@ function changeAvatar(path){
         .catch(console.error);
 }
 
-bot.on("ready", () => {
-    console.log(`Ready to serve in ${bot.channels.size} channels on ${bot.guilds.size} servers, for a total of ${bot.users.size} users.`);
-});
-
-bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));
-
 var sendReminders = function() {
     console.log(`Sending reminders!`);
     Reminder.find({
@@ -154,5 +149,36 @@ var sendReminders = function() {
         }
     );
 }
+
+function processDate(time) {
+    let timeUnits = ['years', 'quarters', 'months', 'weeks', 'days', 'hours', 'minutes'];
+    let processedDate = moment();
+    let args = time.split(' ');
+
+    if (args.length == 1) return;
+
+    for (let i = 0 ; i < args.length - 1 ; i+=2){
+        console.log(args[i] + " " + /[^s]*/.exec(args[i+1])[0] + 's');
+        let number = args[i];
+        if (isNaN(number)) return;
+        if (number < 0) return;
+        number = Number(number);
+
+        let units = /[^s]*/.exec(args[i+1])[0] + 's';
+        if (timeUnits.indexOf(units) > -1) {
+            processedDate.add(number, units);
+        }
+    }
+
+    console.log(processedDate.format());
+    return processedDate.toDate();
+}
+
+
+bot.on("ready", () => {
+    console.log(`Ready to serve in ${bot.channels.size} channels on ${bot.guilds.size} servers, for a total of ${bot.users.size} users.`);
+});
+
+bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));
 
 setInterval(sendReminders, 60000);
