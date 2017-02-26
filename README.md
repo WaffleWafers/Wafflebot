@@ -1,2 +1,2 @@
 # Wafflebot
-A Discord bot made in Discord.js.
+A bot made in Discord.js.
