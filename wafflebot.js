@@ -46,7 +46,7 @@ const commands = {
     },
     '!remindme': {
         description: `Reminds you with a PM.`,
-        argDescription: `<time from now> <"message">`,
+        argDescription: `<int> <unit> <"message">`,
         isAdminCommand: false,
         expectedArgs: -1,
         run: function(msg, args) {
@@ -93,6 +93,35 @@ const commands = {
         run: function(msg, args) {
             sendReminders();
         }
+    },
+    '!purge': {
+        description: `Deletes the past N messages sent.`,
+        argDescription: `<int>`,
+        isAdminCommand: true,
+        expectedArgs: 1,
+        run: function(msg, args) {
+            let numMessages = args[0];
+            let originalMessageId = msg.id;
+            if (isNaN(numMessages)) return;
+            if (numMessages < 0 || numMessages > 50) return;
+            let channel = msg.channel;
+            channel.fetchMessages({limit: numMessages, before: originalMessageId}).then(
+                    function(messages) {
+                        channel.bulkDelete(messages).catch(
+                                function(reason) {
+                                    // Probably because you can't delete messages 2 weeks or older.
+                                    // Or you're trying to purge without permissions.
+                                    console.log('Error purging messages: ' + reason);
+                                }
+                            )
+                    },
+                    function(reason) {
+                        console.log('Error fetching messages to purge: ' + reason);
+                    }
+                );
+            //channel.bulkDelete(numMessages);
+            console.log('Successfully deleted messages.');
+        }
     }
 };
 
@@ -122,7 +151,6 @@ function changeAvatar(path){
 }
 
 var sendReminders = function() {
-    console.log(`Sending reminders!`);
     Reminder.find({
             time: { $lte: Date.now() }
         },
