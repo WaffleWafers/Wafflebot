@@ -23,6 +23,7 @@ const commands = {
     '!help': {
         description: `Show list of all commands.`,
         isAdminCommand: false,
+        availableByDM: true,
         expectedArgs: 0,
         run: function(msg, args) {
             let message = `**Command List**\n`;
@@ -38,6 +39,7 @@ const commands = {
         description: `Change name of bot. (2 hour cooldown)`,
         argDescription: `<username>`,
         isAdminCommand: true,
+        availableByDM: true,
         expectedArgs: -1,
         run: function(msg, args) {
             if (args.length == 0) return;
@@ -49,6 +51,7 @@ const commands = {
         description: `Reminds you with a PM.`,
         argDescription: `<int> <unit> <"message">`,
         isAdminCommand: false,
+        availableByDM: true,
         expectedArgs: -1,
         run: function(msg, args) {
             let authorId = msg.author.id;
@@ -76,6 +79,7 @@ const commands = {
     '!clearreminders': {
         description: `Clears all saved reminders.`,
         isAdminCommand: true,
+        availableByDM: true,
         expectedArgs: 0,
         run: function(msg, args) {
             Reminder.remove({}, function(err) {
@@ -91,15 +95,32 @@ const commands = {
     '!sendreminders': {
         description: `Sends all due reminders.`,
         isAdminCommand: true,
+        availableByDM: true,
         expectedArgs: 0,
         run: function(msg, args) {
             sendReminders();
+        }
+    },
+    '!strawpoll': {
+        description: `Creates a strawpoll.`,
+        argDescription: `<question> <[option1, option2, ...]>`,
+        isAdminCommand: false,
+        availableByDM: false,
+        expectedArgs: -1,
+        run: function(msg, args) {
+            if (!/ \[(.*)\]/.test(msg.content)) return;
+            let question = /!strawpoll ([^\[\]]*) /.exec(msg.content)[1];
+            let options = / \[(.*)\]/.exec(msg.content)[1].split(',').map( (e) => { return e.trim(); } );
+            if (options.length == 0 || question.length == 0) return;
+            
+            initStrawpoll(msg, question, options);
         }
     },
     '!purge': {
         description: `Deletes the past up to 99 messages sent or up to a certain message exclusive. (mods only)`,
         argDescription: `<int> or <message-id>`,
         isAdminCommand: false,
+        availableByDM: false,
         expectedArgs: -1,
         run: function(msg, args) {
             if (!msg.guild.member(msg.author).hasPermission("MANAGE_MESSAGES")) return;
@@ -145,64 +166,7 @@ const commands = {
                 );
         }
     },
-    '!strawpoll': {
-        description: `Creates a strawpoll.`,
-        argDescription: `<question> <[option1, option2, ...]>`,
-        isAdminCommand: false,
-        expectedArgs: -1,
-        run: function(msg, args) {
-            if (!/ \[(.*)\]/.test(msg.content)) return;
-            let question = /!strawpoll ([^\[\]]*) /.exec(msg.content)[1];
-            let options = / \[(.*)\]/.exec(msg.content)[1].split(',').map( (e) => { return e.trim(); } );
-            if (options.length == 0 || question.length == 0) return;
-            
-            request.post('https://strawpoll.me/api/v2/polls', 
-                {
-                    json: true,
-                    followAllRedirects: true,
-                    body: {
-                        "title": question,
-                        "options": options,
-                        "multi": false
-                    }
-                }, function(error, response, body) {
-                    if (!error && response.statusCode == 200) {
-                        msg.channel.sendMessage('', {embed: {
-                          color: 3447003,
-                          title: 'POLL: ' + body.title,
-                          description: 'http://strawpoll.me/' + body.id,
-                          timestamp: new Date(),
-                          footer: {
-                            icon_url: msg.author.avatarURL,
-                            text: 'Strawpoll created by ' + msg.author.username,
-                          }
-                        }});
-                    } else {
-                        msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
-                        console.log('some sort of failure: ' + response.statusCode);
-                    }
-                }
-            );
-
-            // get request
-            // function callback(error, response, body) {
-            //     if (!error && response.statusCode == 200) {
-            //         var info = JSON.parse(body);
-            //         try {
-            //             JSON.parse(body);
-            //         } catch (e) {
-            //             return;
-            //         }
-            //         console.dir(info);
-            //     } else {
-            //         console.log('some sort of failure: ' + response.statusCode);
-            //     }
-            // }
-
-            // request('https://strawpoll.me/api/v2/polls/1', callback);
-
-        }
-    }
+    
 };
 
 bot.on("message", msg => {
@@ -213,7 +177,8 @@ bot.on("message", msg => {
 
     if (!(command in commands)) return;
     if (commands[command].expectedArgs != args.length && commands[command].expectedArgs != -1) return;
-    if (commands[command].isAdminCommand == true && !auth.admins.includes(msg.author.id)) return;
+    if (commands[command].isAdminCommand && !auth.admins.includes(msg.author.id)) return;
+    if (!commands[command].availableByDM && msg.channel.type === 'dm') return; 
 
     commands[command].run(msg, args);
 });
@@ -283,8 +248,35 @@ function processDate(time) {
     return processedDate.toDate();
 }
 
-function createNewPoll() {
-
+function initStrawpoll(msg, question, options) {
+    request.post('https://strawpoll.me/api/v2/polls', 
+        {
+            json: true,
+            followAllRedirects: true,
+            body: {
+                "title": question,
+                "options": options,
+                "multi": false
+            }
+        }, function(error, response, body) {
+            if (!error && response.statusCode == 200) {
+                msg.channel.sendMessage('', {embed: {
+                    color: 3447003,
+                    title: 'POLL: ' + body.title,
+                    description: 'http://strawpoll.me/' + body.id,
+                    timestamp: new Date(),
+                    footer: {
+                        icon_url: msg.author.avatarURL,
+                        text: 'Strawpoll created by ' + msg.author.username,
+                    }
+                }});
+            } else {
+                msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
+                console.log('some sort of failure: ' + response.statusCode);
+                return;
+            }
+        }
+    );
 }
 
 
