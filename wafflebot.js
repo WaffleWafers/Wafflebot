@@ -70,6 +70,7 @@ const commands = {
                 }
             });
         }
+
     },
     '!clearreminders': {
         description: `Clears all saved reminders.`,
@@ -95,18 +96,38 @@ const commands = {
         }
     },
     '!purge': {
-        description: `Deletes the past N messages sent.`,
-        argDescription: `<int>`,
+        description: `Deletes the past up to 99 messages sent or up to a certain message exclusive. (mods only)`,
+        argDescription: `<int> or <message-id>`,
         isAdminCommand: false,
-        expectedArgs: 1,
+        expectedArgs: -1,
         run: function(msg, args) {
             if (!msg.guild.member(msg.author).hasPermission("MANAGE_MESSAGES")) return;
-            let numMessages = args[0];
-            let originalMessageId = msg.id;
-            if (isNaN(numMessages)) return;
-            if (numMessages < 0 || numMessages > 50) return;
+
             let channel = msg.channel;
-            channel.fetchMessages({limit: numMessages, before: originalMessageId}).then(
+
+            let param = args[0];
+            let isNumMessages = false;
+            if (!isNaN(param) && param < 0) return;
+            if (!isNaN(param) && param < 100) {
+                isNumMessages = true;
+                param = Number(param) + 1;
+            } else if (!isNaN(param) && param < 10000000000000000) {
+                msg.channel.sendMessage('You can only purge up to 99 messages at a time. Sorry!');
+            } else {
+                msg.channel.fetchMessage(param).then(
+                    function(message) {
+                        console.log(message.content);
+                    },
+                    function(reason) {
+                        msg.channel.sendMessage('Unable to find message with the id: `' + param + '`');
+                        return;
+                    }
+                )
+            }
+
+            let fetchQuery = isNumMessages ? {limit: param} : {limit: 100, after: param};
+            
+            channel.fetchMessages(fetchQuery).then(
                     function(messages) {
                         channel.bulkDelete(messages).catch(
                                 function(reason) {
@@ -117,20 +138,26 @@ const commands = {
                             )
                     },
                     function(reason) {
+                        // You're trying to delete too many messages at once.
                         console.log('Error fetching messages to purge: ' + reason);
                     }
                 );
-            console.log('Successfully deleted messages.');
         }
     },
     '!test': {
         description: `test`,
         isAdminCommand: true,
-        expectedArgs: 0,
+        expectedArgs: -1,
         run: function(msg, args) {
-            let user = msg.author;
-            let guild = msg.guild;
-            console.log(guild.member(user).hasPermission("MANAGE_MESSAGES"));
+            let id = args[0];
+            msg.channel.fetchMessage(id).then(
+                    function(message) {
+                        console.log(message.content);
+                    },
+                    function(reason) {
+                        console.log('Unable to find message: ' + reason);
+                    }
+                )
         }
     }
 };
@@ -205,10 +232,11 @@ function processDate(time) {
         let units = /[^s]*/.exec(args[i+1])[0] + 's';
         if (timeUnits.indexOf(units) > -1) {
             processedDate.add(number, units);
+        } else {
+            return;
         }
     }
 
-    console.log(processedDate.format());
     return processedDate.toDate();
 }
 
