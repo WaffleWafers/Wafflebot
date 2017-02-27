@@ -9,7 +9,8 @@
     "moment": "^2.17.1",
     "mongodb": "^2.2.24",
     "mongoose": "^4.8.5",
-    "opusscript": "^0.0.2"
+    "opusscript": "^0.0.2",
+    "request": "^2.79.0"
   },
   "devDependencies": {},
   "scripts": {

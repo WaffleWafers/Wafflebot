@@ -3,6 +3,7 @@ const Discord = require("discord.js");
 const moment = require('moment');
 const mongoose = require('mongoose');
 const async = require('async');
+const request = require('request');
 const bot = new Discord.Client();
 
 mongoose.Promise = global.Promise;
@@ -144,20 +145,62 @@ const commands = {
                 );
         }
     },
-    '!test': {
-        description: `test`,
-        isAdminCommand: true,
+    '!strawpoll': {
+        description: `Creates a strawpoll.`,
+        argDescription: `<question> <[option1, option2, ...]>`,
+        isAdminCommand: false,
         expectedArgs: -1,
         run: function(msg, args) {
-            let id = args[0];
-            msg.channel.fetchMessage(id).then(
-                    function(message) {
-                        console.log(message.content);
-                    },
-                    function(reason) {
-                        console.log('Unable to find message: ' + reason);
+            if (!/ \[(.*)\]/.test(msg.content)) return;
+            let question = /!strawpoll ([^\[\]]*) /.exec(msg.content)[1];
+            let options = / \[(.*)\]/.exec(msg.content)[1].split(',').map( (e) => { return e.trim(); } );
+            if (options.length == 0 || question.length == 0) return;
+            
+            request.post('https://strawpoll.me/api/v2/polls', 
+                {
+                    json: true,
+                    followAllRedirects: true,
+                    body: {
+                        "title": question,
+                        "options": options,
+                        "multi": false
                     }
-                )
+                }, function(error, response, body) {
+                    if (!error && response.statusCode == 200) {
+                        msg.channel.sendMessage('', {embed: {
+                          color: 3447003,
+                          title: 'POLL: ' + body.title,
+                          description: 'http://strawpoll.me/' + body.id,
+                          timestamp: new Date(),
+                          footer: {
+                            icon_url: msg.author.avatarURL,
+                            text: 'Strawpoll created by ' + msg.author.username,
+                          }
+                        }});
+                    } else {
+                        msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
+                        console.log('some sort of failure: ' + response.statusCode);
+                    }
+                }
+            );
+
+            // get request
+            // function callback(error, response, body) {
+            //     if (!error && response.statusCode == 200) {
+            //         var info = JSON.parse(body);
+            //         try {
+            //             JSON.parse(body);
+            //         } catch (e) {
+            //             return;
+            //         }
+            //         console.dir(info);
+            //     } else {
+            //         console.log('some sort of failure: ' + response.statusCode);
+            //     }
+            // }
+
+            // request('https://strawpoll.me/api/v2/polls/1', callback);
+
         }
     }
 };
@@ -238,6 +281,10 @@ function processDate(time) {
     }
 
     return processedDate.toDate();
+}
+
+function createNewPoll() {
+
 }
 
 
