@@ -97,9 +97,10 @@ const commands = {
     '!purge': {
         description: `Deletes the past N messages sent.`,
         argDescription: `<int>`,
-        isAdminCommand: true,
+        isAdminCommand: false,
         expectedArgs: 1,
         run: function(msg, args) {
+            if (!msg.guild.member(msg.author).hasPermission("MANAGE_MESSAGES")) return;
             let numMessages = args[0];
             let originalMessageId = msg.id;
             if (isNaN(numMessages)) return;
@@ -119,8 +120,17 @@ const commands = {
                         console.log('Error fetching messages to purge: ' + reason);
                     }
                 );
-            //channel.bulkDelete(numMessages);
             console.log('Successfully deleted messages.');
+        }
+    },
+    '!test': {
+        description: `test`,
+        isAdminCommand: true,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            let user = msg.author;
+            let guild = msg.guild;
+            console.log(guild.member(user).hasPermission("MANAGE_MESSAGES"));
         }
     }
 };
