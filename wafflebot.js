@@ -49,6 +49,18 @@ const commands = {
             changeUsername(username);
         }
     },
+    '!status': {
+        description: `Set current playing of bot.`,
+        argDescription: `<game>`,
+        isAdminCommand: true,
+        availableByDM: true,
+        expectedArgs: -1,
+        run: function(msg, args) {
+            if (args.length == 0) return;
+            let game = args.join(' ');
+            setGame(game);
+        }
+    },
     '!uptime': {
         description: `Shows uptime.`,
         isAdminCommand: false,
@@ -205,15 +217,21 @@ bot.on("message", msg => {
     commands[command].run(msg, args);
 });
 
-function changeUsername(text){
+function changeUsername(text) {
     bot.user.setUsername(text)
         .then(user => console.log(`My new username is ${user.username}`))
         .catch(console.log('Your username change is probably on cooldown.'));
 }
 
-function changeAvatar(path){
+function changeAvatar(path) {
     bot.user.setAvatar(path)
         .then(user => console.log(`New avatar set!`))
+        .catch(console.error);
+}
+
+function setGame(game) {
+    bot.user.setGame(game)
+        .then(user => console.log(`Sucessfully set status!`))
         .catch(console.error);
 }
 
@@ -344,6 +362,7 @@ function initStrawpoll(msg, question, options, endTime) {
 bot.on("ready", () => {
     startTime = moment();
     console.log(`Ready to serve in ${bot.channels.size} channels on ${bot.guilds.size} servers, for a total of ${bot.users.size} users.`);
+    setGame(`!help`);
 });
 
 bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));
