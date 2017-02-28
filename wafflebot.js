@@ -26,6 +26,7 @@ var botDefaultStatus = `!help`;
 var currentSongIndex = 0;
 var dispatcher;
 var startTime;
+var voiceChannel;
 var voiceConnection;
 var playingMusic = false;
 
@@ -164,9 +165,12 @@ const commands = {
         availableByDM: false,
         expectedArgs: 0,
         run: function(msg, args) {
-            const voiceChannel = msg.member.voiceChannel;
+            voiceChannel = msg.member.voiceChannel;
             if (!voiceChannel) {
                 return msg.reply(`Please be in a voice channel first!`);
+            }
+            if (playingMusic) {
+                return msg.reply(`The radio is already on!`);
             }
             playingMusic = true;
             voiceChannel.join()
@@ -398,7 +402,7 @@ function playNextSong(voiceChannel) {
     dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
     dispatcher.on('end', () => {
         dispatcher = null;
-        if (voiceChannel.members.length > 1){
+        if (voiceChannel.members.size > 1){
             currentSongIndex++;
             playNextSong(voiceChannel);
         } else {
