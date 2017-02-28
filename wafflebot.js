@@ -19,6 +19,8 @@ var reminderSchema = mongoose.Schema({
 
 var Reminder = mongoose.model('Reminder', reminderSchema);
 
+var startTime;
+
 const commands = {
     '!help': {
         description: `Show list of all commands.`,
@@ -45,6 +47,20 @@ const commands = {
             if (args.length == 0) return;
             let username = args.join(' ');
             changeUsername(username);
+        }
+    },
+    '!uptime': {
+        description: `Shows uptime.`,
+        isAdminCommand: false,
+        availableByDM: true,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            let currentTime = moment();
+            let timeDifference = currentTime.diff(startTime);
+            let duration = moment.duration(timeDifference);
+            let uptime = Math.floor(duration.asHours()) + moment.utc(timeDifference).format(":mm:ss");
+
+            msg.channel.sendMessage(`**Total uptime:** ${uptime}`);
         }
     },
     '!remindme': {
@@ -104,7 +120,7 @@ const commands = {
     '!strawpoll': {
         description: `Creates a strawpoll.`,
         argDescription: `<question> <[option1, option2, ...]>`,
-        isAdminCommand: true,
+        isAdminCommand: false,
         availableByDM: false,
         expectedArgs: -1,
         run: function(msg, args) {
@@ -112,6 +128,12 @@ const commands = {
             let question = /!strawpoll ([^\[\]]*) /.exec(msg.content)[1];
             let options = / \[(.*)\]/.exec(msg.content)[1].split(',').map( (e) => { return e.trim(); } );
             if (options.length == 0 || question.length == 0) return;
+            // let duration = '1 hour';
+            // if (/] (.*)/.test(msg.content)) {
+            //     duration = '1 hour';
+            // }
+            // if (!processDate(duration)) endTime = processDate('1 hour');
+            // else endTime = processDate(duration);
             
             initStrawpoll(msg, question, options);
         }
@@ -308,7 +330,7 @@ function initStrawpoll(msg, question, options) {
                         text: 'Strawpoll created by ' + msg.author.username,
                     }
                 }});
-                postPollResults(body.id);
+                setTimeout(postPollResults.bind(null, body.id), 60*60*1000);
             } else {
                 msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
                 console.log('some sort of failure: ' + response.statusCode);
@@ -320,6 +342,7 @@ function initStrawpoll(msg, question, options) {
 
 
 bot.on("ready", () => {
+    startTime = moment();
     console.log(`Ready to serve in ${bot.channels.size} channels on ${bot.guilds.size} servers, for a total of ${bot.users.size} users.`);
 });
 
