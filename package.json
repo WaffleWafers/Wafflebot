@@ -10,7 +10,8 @@
     "mongodb": "^2.2.24",
     "mongoose": "^4.8.5",
     "opusscript": "^0.0.2",
-    "request": "^2.79.0"
+    "request": "^2.79.0",
+    "ytdl-core": "^0.9.2"
   },
   "devDependencies": {},
   "scripts": {

@@ -4,6 +4,8 @@ const moment = require('moment');
 const mongoose = require('mongoose');
 const async = require('async');
 const request = require('request');
+const yt = require('ytdl-core');
+
 const bot = new Discord.Client();
 
 mongoose.Promise = global.Promise;
@@ -20,6 +22,7 @@ var reminderSchema = mongoose.Schema({
 var Reminder = mongoose.model('Reminder', reminderSchema);
 
 var startTime;
+var voiceConnection;
 
 const commands = {
     '!help': {
@@ -148,6 +151,23 @@ const commands = {
             if (endTime == null) endTime = processDate('10 minutes');
             
             initStrawpoll(msg, question, options, endTime);
+        }
+    },
+    '!radio': {
+        description: `Plays k-pop in your channel.`,
+        isAdminCommand: false,
+        availableByDM: false,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            const voiceChannel = msg.member.voiceChannel;
+            if (!voiceChannel) {
+                return msg.reply(`Please be in a voice channel first!`);
+            }
+            voiceChannel.join()
+                .then(connection => {
+                    voiceConnection = connection;
+                    playNextSong(voiceChannel);
+                });
         }
     },
     '!purge': {
@@ -356,6 +376,14 @@ function initStrawpoll(msg, question, options, endTime) {
             }
         }
     );
+}
+
+function playNextSong(voiceChannel) {
+    let file = '/Users/wafflewafers/Music/korean/2-03 Whalien 52.m4a';
+    const dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
+    dispatcher.on('end', () => {
+        playNextSong(voiceChannel);
+    });
 }
 
 
