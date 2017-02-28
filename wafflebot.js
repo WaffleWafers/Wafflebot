@@ -119,7 +119,7 @@ const commands = {
     },
     '!strawpoll': {
         description: `Creates a strawpoll.`,
-        argDescription: `<question> <[option1, option2, ...]>`,
+        argDescription: `<question> <[option1, option2, ...]> <duration>`,
         isAdminCommand: false,
         availableByDM: false,
         expectedArgs: -1,
@@ -128,14 +128,14 @@ const commands = {
             let question = /!strawpoll ([^\[\]]*) /.exec(msg.content)[1];
             let options = / \[(.*)\]/.exec(msg.content)[1].split(',').map( (e) => { return e.trim(); } );
             if (options.length == 0 || question.length == 0) return;
-            // let duration = '1 hour';
-            // if (/] (.*)/.test(msg.content)) {
-            //     duration = '1 hour';
-            // }
-            // if (!processDate(duration)) endTime = processDate('1 hour');
-            // else endTime = processDate(duration);
+            let duration = '';
+            if (/] (.*)/.test(msg.content)) {
+                duration = /] (.*)/.exec(msg.content)[1];
+            }
+            let endTime = processDate(duration);
+            if (endTime == null) endTime = processDate('10 minutes');
             
-            initStrawpoll(msg, question, options);
+            initStrawpoll(msg, question, options, endTime);
         }
     },
     '!purge': {
@@ -233,7 +233,7 @@ var sendReminders = function() {
                 let message = reminder.message;
                 let date = new Date(reminder.time);
                 bot.users.get(userId).sendMessage(``, {embed: {
-                    color: 3447003,
+                    color: 16711680,    //red
                     title: 'Reminder!',
                     description: message,
                     timestamp: date,
@@ -253,7 +253,6 @@ function processDate(time) {
     if (args.length == 1) return;
 
     for (let i = 0 ; i < args.length - 1 ; i+=2){
-        console.log(args[i] + " " + /[^s]*/.exec(args[i+1])[0] + 's');
         let number = args[i];
         if (isNaN(number)) return;
         if (number < 0) return;
@@ -270,7 +269,7 @@ function processDate(time) {
     return processedDate.toDate();
 }
 
-function initStrawpoll(msg, question, options) {
+function initStrawpoll(msg, question, options, endTime) {
 
     let postPollResults = function(id) {
         request('https://strawpoll.me/api/v2/polls/' + id,
@@ -292,7 +291,7 @@ function initStrawpoll(msg, question, options) {
 
                     msg.channel.sendMessage(
                         '', {embed: {
-                        color: 3447003,
+                        color: 16711680,
                         title: 'RESULTS: ' + info.title,
                         description: outputString,
                         timestamp: new Date(),
@@ -321,7 +320,7 @@ function initStrawpoll(msg, question, options) {
         }, function(error, response, body) {
             if (!error && response.statusCode == 200) {
                 msg.channel.sendMessage('', {embed: {
-                    color: 3447003,
+                    color: 8190976,     // lawn green
                     title: 'POLL: ' + body.title,
                     description: 'http://strawpoll.me/' + body.id,
                     timestamp: new Date(),
@@ -330,7 +329,8 @@ function initStrawpoll(msg, question, options) {
                         text: 'Strawpoll created by ' + msg.author.username,
                     }
                 }});
-                setTimeout(postPollResults.bind(null, body.id), 60*60*1000);
+
+                setTimeout(postPollResults.bind(null, body.id), endTime - new Date());
             } else {
                 msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
                 console.log('some sort of failure: ' + response.statusCode);
