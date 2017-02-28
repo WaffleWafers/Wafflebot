@@ -161,6 +161,7 @@ const commands = {
     },
     '!radio': {
         description: `Starts a k-pop radio in your current voice channel.`,
+        argDescription: ``,
         isAdminCommand: false,
         availableByDM: false,
         expectedArgs: -1,
