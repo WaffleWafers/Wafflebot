@@ -28,7 +28,7 @@ var dispatcher;
 var startTime;
 var voiceChannel;
 var voiceConnection;
-var playingMusic = false;
+var songInterrupt = false;
 
 const commands = {
     '!help': {
@@ -160,22 +160,45 @@ const commands = {
         }
     },
     '!radio': {
-        description: `Plays k-pop in your channel.`,
+        description: `Starts a k-pop radio in your current voice channel.`,
         isAdminCommand: false,
         availableByDM: false,
-        expectedArgs: 0,
+        expectedArgs: -1,
         run: function(msg, args) {
-            voiceChannel = msg.member.voiceChannel;
-            if (!voiceChannel) {
+            callerVoiceChannel = msg.member.voiceChannel;
+
+            if (!callerVoiceChannel) {
                 return msg.reply(`Please be in a voice channel first!`);
             }
-            if (playingMusic) {
-                return msg.reply(`The radio is already on!`);
+
+            if (args.length > 0) {
+                command = args[0];
+                radioArgs = args.slice(1);
+                if (!(command in radioCommands)) return msg.reply('see the radio commands with `!radio help`.');
+                if (radioCommands[command].expectedArgs != radioArgs.length && commands[command].expectedArgs != -1) return;
+
+                radioCommands[command].run(msg, radioArgs);
+                return;
             }
-            playingMusic = true;
+
+            if (callerVoiceChannel == voiceChannel) {
+                return msg.reply(`The radio is already in your channel.`);
+            }
+
+            if (voiceConnection) {
+                voiceChannel.leave();
+                voiceConnection.disconnect();
+            }
+
+            voiceChannel = callerVoiceChannel;
+
             voiceChannel.join()
                 .then(connection => {
                     voiceConnection = connection;
+                    if (dispatcher != null) {
+                        songInterrupt = true;
+                        dispatcher.end();
+                    }
                     playNextSong(voiceChannel);
                 });
         }
@@ -214,38 +237,94 @@ const commands = {
             let fetchQuery = isNumMessages ? {limit: param} : {limit: 100, after: param};
             
             channel.fetchMessages(fetchQuery).then(
-                    function(messages) {
-                        channel.bulkDelete(messages).catch(
-                                function(reason) {
-                                    // Probably because you can't delete messages 2 weeks or older.
-                                    // Or you're trying to purge without permissions.
-                                    console.log('Error purging messages: ' + reason);
-                                }
-                            )
-                    },
-                    function(reason) {
-                        // You're trying to delete too many messages at once.
-                        console.log('Error fetching messages to purge: ' + reason);
-                    }
-                );
+                function(messages) {
+                    channel.bulkDelete(messages).catch(
+                            function(reason) {
+                                // Probably because you can't delete messages 2 weeks or older.
+                                // Or you're trying to purge without permissions.
+                                console.log('Error purging messages: ' + reason);
+                            }
+                        )
+                },
+                function(reason) {
+                    // You're trying to delete too many messages at once.
+                    console.log('Error fetching messages to purge: ' + reason);
+                }
+            );
         }
     },
-    
 };
 
-bot.on("message", msg => {
-    if (msg.author.bot) return;
-
-    let args = msg.content.split(' ');
-    let command = args.splice(0, 1).toString().toLowerCase();
-
-    if (!(command in commands)) return;
-    if (commands[command].expectedArgs != args.length && commands[command].expectedArgs != -1) return;
-    if (commands[command].isAdminCommand && !auth.admins.includes(msg.author.id)) return;
-    if (!commands[command].availableByDM && msg.channel.type === 'dm') return; 
-
-    commands[command].run(msg, args);
-});
+const radioCommands = {
+    'help': {
+        description: `Show list of all commands.`,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            let message = `**Radio Commands**\n`;
+            message += (`!radio - *${commands['!radio'].description}*\n`);
+            for (let key in radioCommands) {
+                if (!radioCommands.hasOwnProperty(key)) continue;
+                if (key == 'help') continue;
+                message += (`!radio ${key} ${radioCommands[key].expectedArgs > 0 || radioCommands[key].expectedArgs == -1 ? radioCommands[key].argDescription : ''} - *${radioCommands[key].description}*\n`);
+            }
+            msg.channel.sendMessage(message);
+        }
+    },
+    'np': {
+        description: `Displays the song currently being played.`,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            if (!voiceConnection) return;
+            message = `🎵 **Currently playing:** ${songs[currentSongIndex].title} - ${songs[currentSongIndex].artist}`;
+            msg.channel.sendMessage(message);
+        }
+    },
+    'peek': {
+        description: `Displays the current and next 5 songs on the playlist.`,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            if (!voiceConnection) return;
+            message = `🎵 **Currently playing:** ${songs[currentSongIndex].title} - ${songs[currentSongIndex].artist}\n\n`;
+            message += `**Up Next:**\n`;
+            for (let i = 1 ; i <= 5 ; i++) {
+                index = (currentSongIndex + i) % songs.length;
+                message += `**${i}.**   ${songs[index].title} - ${songs[index].artist}\n`;
+            }
+            msg.channel.sendMessage(message);
+        }
+    },
+    'shuffle': {
+        description: `Shuffle current playlist.`,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            callerVoiceChannel = msg.member.voiceChannel;
+            if (callerVoiceChannel == null || callerVoiceChannel != voiceChannel) {
+                return msg.reply(`You must be in the radio's channel to shuffle.`);
+            }
+            shuffleSongs();
+            if (dispatcher != null) {
+                songInterrupt = true;
+                dispatcher.end();
+            }
+            playNextSong(callerVoiceChannel);
+        }
+    },
+    'skip': {
+        description: `Skips to next song in the playlist.`,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            callerVoiceChannel = msg.member.voiceChannel;
+            if (callerVoiceChannel == null || callerVoiceChannel != voiceChannel) {
+                return msg.reply(`You must be in the radio's channel to shuffle.`);
+            }
+            if (dispatcher != null) {
+                songInterrupt = true;
+                dispatcher.end();
+            }
+            playNextSong(callerVoiceChannel);
+        }
+    },
+}
 
 function changeUsername(text) {
     bot.user.setUsername(text)
@@ -260,9 +339,10 @@ function changeAvatar(path) {
 }
 
 function setStatus(game) {
+    console.log(game);
     bot.user.setGame(game)
-        .then(user => console.log(`Sucessfully set status!`))
-        .catch(console.error);
+        .then(user => console.log(`Successfully set status!`))
+        .catch(console.log(`Failed to set status.`));
 }
 
 var sendReminders = function() {
@@ -396,22 +476,38 @@ function shuffleSongs() {
 }
 
 function playNextSong(voiceChannel) {
-    if (currentSongIndex >= songs.length) currentSongIndex = 0;
+    currentSongIndex = (currentSongIndex + 1) % songs.length;
     let file = songs[currentSongIndex].path;
     setStatus(songs[currentSongIndex].title + ' - ' + songs[currentSongIndex].artist);
     dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
     dispatcher.on('end', () => {
         dispatcher = null;
-        if (voiceChannel.members.size > 1){
-            currentSongIndex++;
+        if (voiceChannel.members.size > 1 && !songInterrupt) {
             playNextSong(voiceChannel);
+        } else if (voiceChannel.members.size > 1) {
+            songInterrupt = false;
         } else {
-            playingMusic = false;
             voiceChannel.leave();
+            voiceChannel = null;
+            voiceConnection = null;
+            setStatus(botDefaultStatus);
         }
     });
 }
 
+bot.on("message", msg => {
+    if (msg.author.bot) return;
+
+    let args = msg.content.split(' ');
+    let command = args.splice(0, 1).toString().toLowerCase();
+
+    if (!(command in commands)) return;
+    if (commands[command].expectedArgs != args.length && commands[command].expectedArgs != -1) return;
+    if (commands[command].isAdminCommand && !auth.admins.includes(msg.author.id)) return;
+    if (!commands[command].availableByDM && msg.channel.type === 'dm') return; 
+
+    commands[command].run(msg, args);
+});
 
 bot.on("ready", () => {
     startTime = moment();
