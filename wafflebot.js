@@ -104,7 +104,7 @@ const commands = {
     '!strawpoll': {
         description: `Creates a strawpoll.`,
         argDescription: `<question> <[option1, option2, ...]>`,
-        isAdminCommand: false,
+        isAdminCommand: true,
         availableByDM: false,
         expectedArgs: -1,
         run: function(msg, args) {
@@ -249,6 +249,44 @@ function processDate(time) {
 }
 
 function initStrawpoll(msg, question, options) {
+
+    let postPollResults = function(id) {
+        request('https://strawpoll.me/api/v2/polls/' + id,
+            function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                    let outputString = '';
+                    let info = JSON.parse(body);
+
+                    for (let i = 0 ; i < info.options.length ; i++) {
+                        let lineLength = 40;
+                        let optionLengthCap = 27;
+                        let option = info.options[i].toString();
+                        if (option.length > optionLengthCap) option = option.slice(0, optionLengthCap - 3) + '...';
+                        let votes = info.votes[i].toString();
+                        outputString += option + '-'.repeat(lineLength - option.length - votes.length) + votes + '\n';
+                    }
+
+                    outputString = '```\n' + outputString + '```';
+
+                    msg.channel.sendMessage(
+                        '', {embed: {
+                        color: 3447003,
+                        title: 'RESULTS: ' + info.title,
+                        description: outputString,
+                        timestamp: new Date(),
+                        footer: {
+                            icon_url: msg.author.avatarURL,
+                            text: 'http://strawpoll.me/' + info.id,
+                        }
+                    }});
+                } else {
+                    console.log('some sort of failure: ' + response.statusCode);
+                    return;
+                }
+            }
+        );
+    }
+
     request.post('https://strawpoll.me/api/v2/polls', 
         {
             json: true,
@@ -270,6 +308,7 @@ function initStrawpoll(msg, question, options) {
                         text: 'Strawpoll created by ' + msg.author.username,
                     }
                 }});
+                postPollResults(body.id);
             } else {
                 msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
                 console.log('some sort of failure: ' + response.statusCode);
