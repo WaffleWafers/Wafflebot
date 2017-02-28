@@ -1,8 +1,9 @@
 var auth = require('./auth.json');
+var songs = require('./songs.json').songs;
+const async = require('async');
 const Discord = require("discord.js");
 const moment = require('moment');
 const mongoose = require('mongoose');
-const async = require('async');
 const request = require('request');
 const yt = require('ytdl-core');
 
@@ -21,8 +22,12 @@ var reminderSchema = mongoose.Schema({
 
 var Reminder = mongoose.model('Reminder', reminderSchema);
 
+var botDefaultStatus = `!help`;
+var currentSongIndex = 0;
+var dispatcher;
 var startTime;
 var voiceConnection;
+var playingMusic = false;
 
 const commands = {
     '!help': {
@@ -61,7 +66,7 @@ const commands = {
         run: function(msg, args) {
             if (args.length == 0) return;
             let game = args.join(' ');
-            setGame(game);
+            setStatus(game);
         }
     },
     '!uptime': {
@@ -163,6 +168,7 @@ const commands = {
             if (!voiceChannel) {
                 return msg.reply(`Please be in a voice channel first!`);
             }
+            playingMusic = true;
             voiceChannel.join()
                 .then(connection => {
                     voiceConnection = connection;
@@ -249,7 +255,7 @@ function changeAvatar(path) {
         .catch(console.error);
 }
 
-function setGame(game) {
+function setStatus(game) {
     bot.user.setGame(game)
         .then(user => console.log(`Sucessfully set status!`))
         .catch(console.error);
@@ -378,11 +384,27 @@ function initStrawpoll(msg, question, options, endTime) {
     );
 }
 
+function shuffleSongs() {
+    for (let i = songs.length ; i ; i--) {
+        let j = Math.floor(Math.random() * i);
+        [songs[i - 1], songs[j]] = [songs[j], songs[i - 1]];
+    }
+}
+
 function playNextSong(voiceChannel) {
-    let file = '/Users/wafflewafers/Music/korean/2-03 Whalien 52.m4a';
-    const dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
+    if (currentSongIndex >= songs.length) currentSongIndex = 0;
+    let file = songs[currentSongIndex].path;
+    setStatus(songs[currentSongIndex].title + ' - ' + songs[currentSongIndex].artist);
+    dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
     dispatcher.on('end', () => {
-        playNextSong(voiceChannel);
+        dispatcher = null;
+        if (voiceChannel.members.length > 1){
+            currentSongIndex++;
+            playNextSong(voiceChannel);
+        } else {
+            playingMusic = false;
+            voiceChannel.leave();
+        }
     });
 }
 
@@ -390,7 +412,8 @@ function playNextSong(voiceChannel) {
 bot.on("ready", () => {
     startTime = moment();
     console.log(`Ready to serve in ${bot.channels.size} channels on ${bot.guilds.size} servers, for a total of ${bot.users.size} users.`);
-    setGame(`!help`);
+    setStatus(botDefaultStatus);
+    shuffleSongs();
 });
 
 bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));
