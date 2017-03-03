@@ -20,7 +20,15 @@ var reminderSchema = mongoose.Schema({
     time: Date
 });
 
+var strawpollSchema = mongoose.Schema({
+    pollId: String,
+    channelId: String,
+    authorId: String,
+    time: Date
+});
+
 var Reminder = mongoose.model('Reminder', reminderSchema);
+var Strawpoll = mongoose.model('Strawpoll', strawpollSchema);
 
 var botDefaultStatus = `!help`;
 var currentSongIndex = 0;
@@ -140,7 +148,7 @@ const commands = {
     },
     '!strawpoll': {
         description: `Creates a strawpoll.`,
-        argDescription: `<question> <[option1, option2, ...]> <duration>`,
+        argDescription: `<question> <[option1, option2, ...]> <duration> <m>`,
         isAdminCommand: false,
         availableByDM: false,
         expectedArgs: -1,
@@ -149,14 +157,20 @@ const commands = {
             let question = /!strawpoll ([^\[\]]*) /.exec(msg.content)[1];
             let options = / \[(.*)\]/.exec(msg.content)[1].split(',').map( (e) => { return e.trim(); } );
             if (options.length == 0 || question.length == 0) return;
+            message = msg.content.trim();
+            let isMulti = false;
+            if (args[args.length - 1] == 'm') {
+                message = message.slice(0, -2);
+                isMulti = true;
+            }
             let duration = '';
-            if (/] (.*)/.test(msg.content)) {
-                duration = /] (.*)/.exec(msg.content)[1];
+            if (/] (.*)/.test(message)) {
+                duration = /] (.*)/.exec(message)[1];
             }
             let endTime = processDate(duration);
-            if (endTime == null) endTime = processDate('10 minutes');
+            if (endTime == null) endTime = processDate('1 hour');
             
-            initStrawpoll(msg, question, options, endTime);
+            initStrawpoll(msg, question, options, endTime, isMulti);
         }
     },
     '!radio': {
@@ -346,7 +360,12 @@ function setStatus(game) {
         .catch(console.log(`Failed to set status.`));
 }
 
-var sendReminders = function() {
+var checkPeriodics = function() {
+    sendReminders();
+    sendStrawpollResults();
+}
+
+function sendReminders() {
     Reminder.find({
             time: { $lte: Date.now() }
         },
@@ -369,6 +388,61 @@ var sendReminders = function() {
                 }});
                 console.log(`A reminder was sent!`);
                 reminder.remove();
+            });
+        }
+    );
+}
+
+function sendStrawpollResults() {
+    Strawpoll.find({
+            time: { $lte: Date.now() }
+        },
+        function(err, polls) {
+            if (err) {
+                console.log(`An error occurred while querying for polls.`);
+                return;
+            }
+            async.each(polls, function(poll) {
+                if (!polls) return;
+
+                request('https://strawpoll.me/api/v2/polls/' + poll.pollId,
+                    function (error, response, body) {
+                        if (!error && response.statusCode == 200) {
+                            let outputString = '';
+                            let info = JSON.parse(body);
+
+                            for (let i = 0 ; i < info.options.length ; i++) {
+                                let lineLength = 40;
+                                let optionLengthCap = 27;
+                                let option = info.options[i].toString();
+                                if (option.length > optionLengthCap) option = option.slice(0, optionLengthCap - 3) + '...';
+                                let votes = info.votes[i].toString();
+                                outputString += option + ' ' + '-'.repeat(lineLength - option.length - votes.length - 2) + ' ' + votes + '\n';
+                            }
+
+                            outputString = '```\n' + outputString + '```';
+
+                            bot.channels.get(poll.channelId).sendMessage(
+                                '@here', {embed: {
+                                color: 16711680,
+                                title: 'RESULTS: ' + info.title,
+                                description: outputString,
+                                timestamp: new Date(),
+                                footer: {
+                                    icon_url: bot.users.get(poll.authorId).avatarURL,
+                                    text: 'http://strawpoll.me/' + info.id,
+                                }
+                            }});
+
+                            console.log('A strawpoll result was sent!');
+                            poll.remove();
+
+                        } else {
+                            console.log('some sort of failure: ' + response.statusCode);
+                            return;
+                        }
+                    }
+                );
             });
         }
     );
@@ -398,45 +472,7 @@ function processDate(time) {
     return processedDate.toDate();
 }
 
-function initStrawpoll(msg, question, options, endTime) {
-
-    let postPollResults = function(id) {
-        request('https://strawpoll.me/api/v2/polls/' + id,
-            function (error, response, body) {
-                if (!error && response.statusCode == 200) {
-                    let outputString = '';
-                    let info = JSON.parse(body);
-
-                    for (let i = 0 ; i < info.options.length ; i++) {
-                        let lineLength = 40;
-                        let optionLengthCap = 27;
-                        let option = info.options[i].toString();
-                        if (option.length > optionLengthCap) option = option.slice(0, optionLengthCap - 3) + '...';
-                        let votes = info.votes[i].toString();
-                        outputString += option + '-'.repeat(lineLength - option.length - votes.length) + votes + '\n';
-                    }
-
-                    outputString = '```\n' + outputString + '```';
-
-                    msg.channel.sendMessage(
-                        '', {embed: {
-                        color: 16711680,
-                        title: 'RESULTS: ' + info.title,
-                        description: outputString,
-                        timestamp: new Date(),
-                        footer: {
-                            icon_url: msg.author.avatarURL,
-                            text: 'http://strawpoll.me/' + info.id,
-                        }
-                    }});
-                } else {
-                    console.log('some sort of failure: ' + response.statusCode);
-                    return;
-                }
-            }
-        );
-    }
-
+function initStrawpoll(msg, question, options, endTime, isMulti) {
     request.post('https://strawpoll.me/api/v2/polls', 
         {
             json: true,
@@ -444,11 +480,11 @@ function initStrawpoll(msg, question, options, endTime) {
             body: {
                 "title": question,
                 "options": options,
-                "multi": false
+                "multi": isMulti
             }
         }, function(error, response, body) {
             if (!error && response.statusCode == 200) {
-                msg.channel.sendMessage('', {embed: {
+                msg.channel.sendMessage('@here', {embed: {
                     color: 8190976,     // lawn green
                     title: 'POLL: ' + body.title,
                     description: 'http://strawpoll.me/' + body.id,
@@ -458,8 +494,20 @@ function initStrawpoll(msg, question, options, endTime) {
                         text: 'Strawpoll created by ' + msg.author.username,
                     }
                 }});
+                var strawpoll = new Strawpoll({
+                    pollId: body.id,
+                    channelId: msg.channel.id,
+                    authorId: msg.author.id,
+                    time: endTime
+                });
+                strawpoll.save(function(err, reminder) {
+                    if (err) {
+                        console.log(`Error with saving strawpoll: ` + err);
+                    } else {
+                        console.log(`Strawpoll saved.`);
+                    }
+                });
 
-                setTimeout(postPollResults.bind(null, body.id), endTime - new Date());
             } else {
                 msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
                 console.log('some sort of failure: ' + response.statusCode);
@@ -519,4 +567,4 @@ bot.on("ready", () => {
 
 bot.login(auth.token).then(console.log('Logged in.')).catch(error => console.log(error));
 
-setInterval(sendReminders, 60000);
+setInterval(checkPeriodics, 60000);

@@ -6,7 +6,7 @@ A bot made for personal use and for the UW osu! server.
 !help  - Show list of all commands.
 !uptime  - Shows uptime.
 !remindme <int> <unit> <"message"> - Reminds you with a PM.
-!strawpoll <question> <[option1, option2, ...]> <duration> - Creates a strawpoll.
+!strawpoll <question> <[option1, option2, ...]> <duration> <m> - Creates a strawpoll.
 !radio  - Starts a k-pop radio in your current voice channel.
 !purge <int> or <message-id> - Deletes the past N messages or up to a certain message exclusive.
 ```
