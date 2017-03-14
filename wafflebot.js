@@ -1,5 +1,6 @@
 var auth = require('./auth.json');
 var songs = require('./songs.json').songs;
+var iuimages = require('./iuimages.json').paths;
 const async = require('async');
 const Discord = require("discord.js");
 const moment = require('moment');
@@ -90,6 +91,16 @@ const commands = {
             let uptime = Math.floor(duration.asHours()) + moment.utc(timeDifference).format(":mm:ss");
 
             msg.channel.sendMessage(`**Total uptime:** ${uptime}`);
+        }
+    },
+    '!iu': {
+        description: `Bless the channel.`,
+        isAdminCommand: false,
+        availableByDM: true,
+        expectedArgs: 0,
+        run: function(msg, args) {
+            let imagePath = iuimages[Math.floor(Math.random() * iuimages.length)];
+            msg.channel.sendFile(imagePath).catch(console.error);
         }
     },
     '!remindme': {
