@@ -2,7 +2,7 @@
 from mutagen.id3 import ID3
 from mutagen.mp4 import MP4
 
-import glob, json
+import glob, json, io
 
 # Change value to directory containing mp3/m4a files.
 music_directory = "/root/music/korean/"
@@ -36,7 +36,11 @@ for i in range(0, len(files)):
 collection = {}
 collection['songs'] = songs
 json_data = json.dumps(collection)
+json_data = json.loads(json_data)
 
-with open('songs.json', 'w') as outfile:
-    json.dump(collection, outfile)
+with io.open('songs.json', 'w', encoding='utf-8') as f:
+  f.write(json.dumps(json_data, indent=4, sort_keys=True, ensure_ascii=False))
+
+# with open('songs.json', 'w') as outfile:
+#     json.dump(collection, outfile)
 
