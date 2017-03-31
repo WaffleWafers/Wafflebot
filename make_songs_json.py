@@ -5,7 +5,7 @@ from mutagen.mp4 import MP4
 import glob, json
 
 # Change value to directory containing mp3/m4a files.
-music_directory = "/Users/wafflewafers/Music/korean/"
+music_directory = "/root/music/korean/"
 
 mp3_files = glob.glob(music_directory + "*.mp3")
 m4a_files = glob.glob(music_directory + "*.m4a")
@@ -39,3 +39,4 @@ json_data = json.dumps(collection)
 
 with open('songs.json', 'w') as outfile:
     json.dump(collection, outfile)
+

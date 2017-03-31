@@ -1,7 +1,7 @@
 import glob, json
 
-# Change value to directory containing mp3/m4a files.
-image_directory = "/Users/wafflewafers/Pictures/Misc/IRL/"
+# Change value to directory containing jpg files.
+image_directory = "/root/images/iu/"
 
 jpg_files = glob.glob(image_directory + "*.jpg")
 
