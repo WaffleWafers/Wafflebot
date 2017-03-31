@@ -323,6 +323,7 @@ const radioCommands = {
         description: `Shuffle current playlist.`,
         expectedArgs: 0,
         run: function(msg, args) {
+            if (!voiceConnection) return;
             callerVoiceChannel = msg.member.voiceChannel;
             if (callerVoiceChannel == null || callerVoiceChannel != voiceChannel) {
                 return msg.reply(`You must be in the radio's channel to shuffle.`);
@@ -339,6 +340,7 @@ const radioCommands = {
         description: `Skips to next song in the playlist.`,
         expectedArgs: 0,
         run: function(msg, args) {
+            if (!voiceConnection) return;
             callerVoiceChannel = msg.member.voiceChannel;
             if (callerVoiceChannel == null || callerVoiceChannel != voiceChannel) {
                 return msg.reply(`You must be in the radio's channel to shuffle.`);
@@ -542,9 +544,20 @@ function playNextSong(voiceChannel) {
     dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
     dispatcher.on('end', () => {
         dispatcher = null;
-        if (voiceChannel.members.size > 1 && !songInterrupt) {
+        var numUserMembers = 0;
+        console.log(voiceChannel.members.values());
+        for (let member of voiceChannel.members.values()) {
+            if (!member.user.bot) {
+                console.log("USER IS NOT A BOT");
+                numUserMembers++;
+            } else {
+                console.log("USER IS A BOT");
+            }
+        }
+        console.log("TOTAL USER MEMBERS: " + numUserMembers);
+        if (numUserMembers > 0 && !songInterrupt) {
             playNextSong(voiceChannel);
-        } else if (voiceChannel.members.size > 1) {
+        } else if (numUserMembers > 0) {
             songInterrupt = false;
         } else {
             voiceChannel.leave();
