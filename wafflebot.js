@@ -550,16 +550,11 @@ function playNextSong(voiceChannel) {
     dispatcher.on('end', () => {
         dispatcher = null;
         var numUserMembers = 0;
-        console.log(voiceChannel.members.values());
         for (let member of voiceChannel.members.values()) {
             if (!member.user.bot) {
-                console.log("USER IS NOT A BOT");
                 numUserMembers++;
-            } else {
-                console.log("USER IS A BOT");
             }
         }
-        console.log("TOTAL USER MEMBERS: " + numUserMembers);
         if (numUserMembers > 0 && !songInterrupt) {
             playNextSong(voiceChannel);
         } else if (numUserMembers > 0) {
