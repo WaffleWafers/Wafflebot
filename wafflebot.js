@@ -541,7 +541,12 @@ function playNextSong(voiceChannel) {
     currentSongIndex = (currentSongIndex + 1) % songs.length;
     let file = songs[currentSongIndex].path;
     setStatus(songs[currentSongIndex].title + ' - ' + songs[currentSongIndex].artist);
-    dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
+    if (file != null) {
+        dispatcher = voiceConnection.playFile(file, { seek: 0, volume: 0.3 });
+    } else {
+        console.log(`Tried to play song index ${currentSongIndex}.`);
+        bot.users.get(auth.admins[0]).sendMessage(`Something went wrong with Wafflebot on song index ${currentSongIndex}, please check the logs.`);
+    }
     dispatcher.on('end', () => {
         dispatcher = null;
         var numUserMembers = 0;
