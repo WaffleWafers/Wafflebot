@@ -1,5 +1,5 @@
-var auth = require('./auth.json');
-var iuimages = require('./iuimages.json').paths;
+var auth = require('./resources/auth.json');
+var iuimages = require('./resources/iuimages.json').paths;
 const async = require('async');
 const Discord = require("discord.js");
 const moment = require('moment');

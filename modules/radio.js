@@ -1,6 +1,6 @@
 const Discord = require("discord.js");
-var auth = require('../auth.json');
-var songs = require('../songs.json').songs;
+var auth = require('../resources/auth.json');
+var songs = require('../resources/songs.json').songs;
 
 class Radio {
 
