@@ -333,28 +333,28 @@ const radioCommands = {
 	},
 }
 
-function changeUsername(text) {
-	bot.user.setUsername(text)
-		.then(user => console.log(`My new username is ${user.username}`))
-		.catch(console.log('Your username change is probably on cooldown.'));
-}
+function processDate(time) {
+	let timeUnits = ['years', 'quarters', 'months', 'weeks', 'days', 'hours', 'minutes'];
+	let processedDate = moment();
+	let args = time.split(' ');
 
-function changeAvatar(path) {
-	bot.user.setAvatar(path)
-		.then(user => console.log(`New avatar set!`))
-		.catch(console.error);
-}
+	if (args.length == 1) return;
 
-function setStatus(game) {
-	console.log(game);
-	bot.user.setGame(game)
-		.then(user => console.log(`Successfully set status!`))
-		.catch(console.log(`Failed to set status.`));
-}
+	for (let i = 0 ; i < args.length - 1 ; i+=2){
+		let number = args[i];
+		if (isNaN(number)) return;
+		if (number < 0) return;
+		number = Number(number);
 
-var checkPeriodics = function() {
-	sendReminders();
-	sendStrawpollResults();
+		let units = /[^s]*/.exec(args[i+1])[0] + 's';
+		if (timeUnits.indexOf(units) > -1) {
+			processedDate.add(number, units);
+		} else {
+			return;
+		}
+	}
+
+	return processedDate.toDate();
 }
 
 function sendReminders() {
@@ -381,6 +381,51 @@ function sendReminders() {
 				console.log(`A reminder was sent!`);
 				reminder.remove();
 			});
+		}
+	);
+}
+
+function initStrawpoll(msg, question, options, endTime, isMulti) {
+	request.post('https://strawpoll.me/api/v2/polls', 
+		{
+			json: true,
+			followAllRedirects: true,
+			body: {
+				"title": question,
+				"options": options,
+				"multi": isMulti
+			}
+		}, function(error, response, body) {
+			if (!error && response.statusCode == 200) {
+				msg.channel.sendMessage('@here', {embed: {
+					color: 8190976,     // lawn green
+					title: 'POLL: ' + body.title,
+					description: 'http://strawpoll.me/' + body.id,
+					timestamp: new Date(),
+					footer: {
+						icon_url: msg.author.avatarURL,
+						text: 'Strawpoll created by ' + msg.author.username,
+					}
+				}});
+				var strawpoll = new Strawpoll({
+					pollId: body.id,
+					channelId: msg.channel.id,
+					authorId: msg.author.id,
+					time: endTime
+				});
+				strawpoll.save(function(err, reminder) {
+					if (err) {
+						console.log(`Error with saving strawpoll: ` + err);
+					} else {
+						console.log(`Strawpoll saved.`);
+					}
+				});
+
+			} else {
+				msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
+				console.log('some sort of failure: ' + response.statusCode);
+				return;
+			}
 		}
 	);
 }
@@ -440,73 +485,25 @@ function sendStrawpollResults() {
 	);
 }
 
-function processDate(time) {
-	let timeUnits = ['years', 'quarters', 'months', 'weeks', 'days', 'hours', 'minutes'];
-	let processedDate = moment();
-	let args = time.split(' ');
-
-	if (args.length == 1) return;
-
-	for (let i = 0 ; i < args.length - 1 ; i+=2){
-		let number = args[i];
-		if (isNaN(number)) return;
-		if (number < 0) return;
-		number = Number(number);
-
-		let units = /[^s]*/.exec(args[i+1])[0] + 's';
-		if (timeUnits.indexOf(units) > -1) {
-			processedDate.add(number, units);
-		} else {
-			return;
-		}
-	}
-
-	return processedDate.toDate();
+function changeUsername(text) {
+	bot.user.setUsername(text)
+		.then(user => console.log(`My new username is ${user.username}`))
+		.catch(console.log('Your username change is probably on cooldown.'));
 }
 
-function initStrawpoll(msg, question, options, endTime, isMulti) {
-	request.post('https://strawpoll.me/api/v2/polls', 
-		{
-			json: true,
-			followAllRedirects: true,
-			body: {
-				"title": question,
-				"options": options,
-				"multi": isMulti
-			}
-		}, function(error, response, body) {
-			if (!error && response.statusCode == 200) {
-				msg.channel.sendMessage('@here', {embed: {
-					color: 8190976,     // lawn green
-					title: 'POLL: ' + body.title,
-					description: 'http://strawpoll.me/' + body.id,
-					timestamp: new Date(),
-					footer: {
-						icon_url: msg.author.avatarURL,
-						text: 'Strawpoll created by ' + msg.author.username,
-					}
-				}});
-				var strawpoll = new Strawpoll({
-					pollId: body.id,
-					channelId: msg.channel.id,
-					authorId: msg.author.id,
-					time: endTime
-				});
-				strawpoll.save(function(err, reminder) {
-					if (err) {
-						console.log(`Error with saving strawpoll: ` + err);
-					} else {
-						console.log(`Strawpoll saved.`);
-					}
-				});
+function changeAvatar(path) {
+	bot.user.setAvatar(path)
+		.then(user => console.log(`New avatar set!`))
+		.catch(console.error);
+}
 
-			} else {
-				msg.channel.sendMessage("There was an error in making your strawpoll. Sorry!");
-				console.log('some sort of failure: ' + response.statusCode);
-				return;
-			}
-		}
-	);
+function setStatus(game) {
+	bot.user.setGame(game);
+}
+
+var checkPeriodics = function() {
+	sendReminders();
+	sendStrawpollResults();
 }
 
 bot.on("message", msg => {
