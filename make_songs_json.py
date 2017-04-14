@@ -38,7 +38,7 @@ collection['songs'] = songs
 json_data = json.dumps(collection)
 json_data = json.loads(json_data)
 
-with io.open('songs.json', 'w', encoding='utf-8') as f:
+with io.open('./resources/songs.json', 'w', encoding='utf-8') as f:
   f.write(json.dumps(json_data, indent=4, sort_keys=True, ensure_ascii=False))
 
 # with open('songs.json', 'w') as outfile:

@@ -11,5 +11,5 @@ json_data = json.dumps(collection)
 
 print(len(collection['paths']))
 
-with open('iuimages.json', 'w') as outfile:
+with open('./resources/iuimages.json', 'w') as outfile:
     json.dump(collection, outfile)
